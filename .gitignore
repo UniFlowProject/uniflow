@@ -7,7 +7,9 @@
 # Tooling state
 .codegraph/
 .atl/
+.claude/
 .vscode/
+.DS_Store
 .idea/
 
 # Secrets and environment
