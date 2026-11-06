@@ -18,7 +18,8 @@ flowchart LR
 
   subgraph notif["Serverless notifications"]
     rest["REST Lambdas"] --> ddb[("DynamoDB")]
-    sched["EventBridge Scheduler"] --> sqs["SQS"] --> sns["SNS"] --> lam["Lambdas"]
+    sched["EventBridge Scheduler"] --> qexp["SQS expirations"] --> pe["Lambda<br/>process_expiration"] --> sns["SNS"]
+    sns --> sqs["SQS in-app and email"] --> lam["Consumer Lambdas"]
     lam --> ses["SES email"]
     lam --> ddb
     lam --> ws
