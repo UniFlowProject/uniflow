@@ -1,0 +1,37 @@
+# Sub-repositories (each has its own .git)
+/uniflow-academic-service/
+/UniFlow-Frontend/
+/uniflow-notification-service/
+/uniflow-tasks-service/
+
+# Tooling state
+.codegraph/
+.atl/
+.vscode/
+.idea/
+
+# Secrets and environment
+**/.env
+**/.env.*
+!**/.env.example
+
+# Terraform (keep .terraform.lock.hcl tracked)
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfvars
+!**/*.tfvars.example
+**/*.tfplan
+**/*.plan
+**/backend.hcl
+crash.log
+crash.*.log
+
+# Build outputs and dependencies
+node_modules/
+dist/
+build/
+target/
+coverage/
+lambdas/**/*.zip
+*.log
