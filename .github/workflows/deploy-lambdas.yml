@@ -1,14 +1,17 @@
 name: Test and deploy Lambdas
 
 # Code-only deploys. Infrastructure (functions, roles, routes) is applied with terraform
-# from ./terraform; the next terraform apply re-uploads whatever is built locally.
+# from infra/; the next terraform apply re-uploads whatever is built locally.
 
 on:
   push:
     branches: [main]
     paths:
-      - '*/**'
-      - 'build.sh'
+      - 'lambdas/**'
+
+defaults:
+  run:
+    working-directory: lambdas
 
 permissions:
   id-token: write
