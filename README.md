@@ -4,6 +4,10 @@ UniFlow is an academic planner for university students: periods, courses and tas
 
 ## Architecture
 
+![UniFlow AWS architecture](diagrams/Uniflow%20AWS%20Diagram%20Architecture.jpg)
+
+Editable source: [diagrams/Uniflow.drawio](diagrams/Uniflow.drawio). Request and notification flow in short:
+
 ```mermaid
 flowchart LR
   user["Browser"] --> cf["CloudFront"]
@@ -97,6 +101,7 @@ One `terraform apply` in `infra/` creates the whole platform. Prerequisites, app
 ├── docker/                 Floci bootstrap and notification Dockerfile for local dev
 ├── docker-compose.dev.yml  Local platform
 ├── scripts/                dev-token.sh, dev-smoke.sh
+├── diagrams/               Draw.io source and exported images
 ├── docs/
 │   ├── adr/                Architecture decision records
 │   ├── architecture.md     Diagrams

@@ -4,6 +4,10 @@ Diagrams of the deployed platform (AWS, one Terraform stack in [`infra/`](../inf
 
 ## System
 
+![UniFlow AWS architecture](../diagrams/Uniflow%20AWS%20Diagram%20Architecture.jpg)
+
+Editable source: [diagrams/Uniflow.drawio](../diagrams/Uniflow.drawio).
+
 The browser loads the SPA from CloudFront and calls `/api/*` on the same origin. CloudFront forwards `/api/*` to the HTTP API. Academic requests go through a VPC link to an internal ALB and on to ECS Fargate; notification requests go straight to Lambda. Both are protected by the same Cognito JWT authorizer.
 
 ```mermaid
@@ -43,6 +47,8 @@ flowchart LR
 The notification pipeline behind the Scheduler is drawn below.
 
 ## CI/CD
+
+![CI/CD pipelines](../diagrams/Uniflow%20AWS%20Diagram%20CICD.jpg)
 
 Each deployable repository has one GitHub Actions workflow and one IAM role assumed through GitHub OIDC (no stored AWS keys, see [ADR 0005](adr/0005-github-actions-oidc-roles.md)). CI ships artifacts only; infrastructure is applied with Terraform by hand.
 
@@ -96,6 +102,8 @@ flowchart LR
 ```
 
 ## WebSocket connection
+
+![WebSocket notifications](../diagrams/Uniflow%20AWS%20Diagram%20WebSocket.jpg)
 
 The token travels in the `token` query string and is checked by a Lambda REQUEST authorizer. Connections are stored with a TTL attribute and looked up by `user_id` when a notification is pushed.
 
