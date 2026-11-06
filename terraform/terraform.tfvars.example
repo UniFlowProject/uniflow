@@ -1,0 +1,38 @@
+project-tag = "uniflow"
+aws_region  = "us-east-1"
+
+# Optional custom domain. The Route53 public hosted zone must already exist;
+# it is only read (by id, or by domain_name when route53_zone_id is null).
+# domain_name     = "app.example.com"
+# route53_zone_id = "Z0123456789ABCDEFGHIJ"
+
+# Cognito Hosted UI domain prefix (unique per region; null = no Hosted UI) and
+# extra SPA origins (callback <origin>/auth/callback, logout <origin>).
+# cognito_domain_prefix = "my-app-auth"
+# cognito_app_origins   = ["http://localhost:3000"]
+
+# Optional SES sender / alarm e-mail
+# ses_sender_email = "no-reply@example.com"
+# alarm_email      = "ops@example.com"
+
+# --- Cheap demo profile (these are the variable defaults, except the three
+# teardown-friendly overrides below) ---
+enable_waf                = false
+enable_nat_gateway        = false
+enable_guardduty          = false
+enable_inspector          = false
+rds_multi_az              = false
+rds_deletion_protection   = false # demo only
+rds_skip_final_snapshot   = true  # demo only
+# cognito_deletion_protection = "INACTIVE" # demo only
+
+# --- Full profile: flip these instead ---
+# enable_waf               = true
+# enable_nat_gateway       = true
+# enable_guardduty         = true
+# enable_inspector         = true
+# ecs_container_insights   = true
+# rds_multi_az             = true
+# rds_deletion_protection  = true
+# rds_skip_final_snapshot  = false
+# rds_backup_retention_days = 7
