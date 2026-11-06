@@ -1,6 +1,6 @@
 # Local development platform: shared Cognito + API Gateway with a Lambda authorizer in front of the
 # academic and notification microservices, all on top of Floci (local AWS emulator, https://floci.io/aws/).
-# See DEV.md. DEV ONLY: every value below is a throwaway default, and Floci mounts the Docker socket
+# See docs/local-development.md. DEV ONLY: every value below is a throwaway default, and Floci mounts the Docker socket
 # (root-equivalent on the host), so keep this stack on your own machine.
 #
 #   docker compose -f docker-compose.dev.yml up -d --build
