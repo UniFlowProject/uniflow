@@ -1,15 +1,15 @@
-# Lambda functions. Code is staged by ../build.sh into ../.build/<dir> and zipped here.
+# Lambda functions. Code is staged by ../lambdas/build.sh into ../lambdas/.build/<dir> and zipped here.
 
 locals {
-  build_dir = "${path.module}/../.build"
+  build_dir = "${path.module}/../lambdas/.build"
 
   email_env = merge(
-    { USER_POOL_ID = local.platform.cognito_user_pool_id, TIMEZONE = var.email_timezone },
+    { USER_POOL_ID = aws_cognito_user_pool.this.id, TIMEZONE = var.email_timezone },
     var.ses_sender_email != null ? { FROM_EMAIL = var.ses_sender_email } : {},
     var.default_to_email != null ? { DEFAULT_TO_EMAIL = var.default_to_email } : {},
   )
 
-  api_env = tomap({ NOTIFICATIONS_TABLE = local.platform.dynamodb_notifications_name })
+  api_env = tomap({ NOTIFICATIONS_TABLE = aws_dynamodb_table.notifications.name })
 
   functions = {
     # --- REST (HTTP API) ---
@@ -37,7 +37,7 @@ locals {
     # --- SQS consumers. Timeouts stay at 10s: the queues' visibility timeout is 60s (6x, per AWS guidance). ---
     process_expiration = {
       dir = "process_expiration", handler = "index.handler", timeout = 10, memory = 128
-      env = tomap({ NOTIFICATIONS_TOPIC_ARN = local.platform.sns_topic_arn })
+      env = tomap({ NOTIFICATIONS_TOPIC_ARN = aws_sns_topic.notifications.arn })
     }
     send_email = {
       dir = "sendEmail", handler = "index.handler", timeout = 10, memory = 256
@@ -46,10 +46,10 @@ locals {
     in_app_notification = {
       dir = "sendExpirationReminderInAppNotification", handler = "index.handler", timeout = 10, memory = 256
       env = tomap({
-        CONNECTIONS_TABLE             = local.platform.dynamodb_connections_name
-        NOTIFICATIONS_TABLE           = local.platform.dynamodb_notifications_name
+        CONNECTIONS_TABLE             = aws_dynamodb_table.connections.name
+        NOTIFICATIONS_TABLE           = aws_dynamodb_table.notifications.name
         CONNECTIONS_USER_INDEX        = "user_id-index"
-        WEBSOCKET_MANAGEMENT_ENDPOINT = local.platform.websocket_management_endpoint
+        WEBSOCKET_MANAGEMENT_ENDPOINT = local.websocket_management_endpoint
       })
     }
 
@@ -57,17 +57,17 @@ locals {
     ws_authorizer = {
       dir = "lambda_authorizer", handler = "index.handler", timeout = 5, memory = 256
       env = tomap({
-        USER_POOL_ID        = local.platform.cognito_user_pool_id
-        USER_POOL_CLIENT_ID = local.platform.cognito_client_id
+        USER_POOL_ID        = aws_cognito_user_pool.this.id
+        USER_POOL_CLIENT_ID = aws_cognito_user_pool_client.spa.id
       })
     }
     ws_connect = {
       dir = "handle_notifications_ws_connection", handler = "index.handler", timeout = 5, memory = 128
-      env = tomap({ CONNECTIONS_TABLE = local.platform.dynamodb_connections_name })
+      env = tomap({ CONNECTIONS_TABLE = aws_dynamodb_table.connections.name })
     }
     ws_disconnect = {
       dir = "handle_notifications_ws_disconnection", handler = "index.handler", timeout = 5, memory = 128
-      env = tomap({ CONNECTIONS_TABLE = local.platform.dynamodb_connections_name })
+      env = tomap({ CONNECTIONS_TABLE = aws_dynamodb_table.connections.name })
     }
   }
 }
@@ -84,7 +84,7 @@ resource "aws_cloudwatch_log_group" "lambda" {
   for_each = local.functions
 
   name              = "/aws/lambda/${var.project-tag}-${replace(each.key, "_", "-")}"
-  retention_in_days = var.log_retention_days
+  retention_in_days = var.lambda_log_retention_days
 }
 
 resource "aws_lambda_function" "this" {

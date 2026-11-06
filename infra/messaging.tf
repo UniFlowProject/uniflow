@@ -11,8 +11,7 @@ resource "aws_sns_topic" "notifications" {
   kms_master_key_id = aws_kms_key.shared.arn
 
   tags = {
-    Name     = "${var.project-tag}-notifications"
-    projects = var.project-tag
+    Name = "${var.project-tag}-notifications"
   }
 }
 
@@ -24,8 +23,7 @@ resource "aws_sqs_queue" "dlq" {
   kms_master_key_id         = aws_kms_key.shared.arn
 
   tags = {
-    Name     = "${var.project-tag}-${each.key}-dlq"
-    projects = var.project-tag
+    Name = "${var.project-tag}-${each.key}-dlq"
   }
 }
 
@@ -43,8 +41,7 @@ resource "aws_sqs_queue" "this" {
   })
 
   tags = {
-    Name     = "${var.project-tag}-${each.key}"
-    projects = var.project-tag
+    Name = "${var.project-tag}-${each.key}"
   }
 }
 
@@ -126,9 +123,6 @@ resource "aws_sns_topic_subscription" "queues" {
 resource "aws_scheduler_schedule_group" "this" {
   name = var.project-tag
 
-  tags = {
-    projects = var.project-tag
-  }
 }
 
 data "aws_iam_policy_document" "scheduler_assume" {
@@ -166,9 +160,6 @@ resource "aws_iam_role" "scheduler" {
   name               = "${var.project-tag}-scheduler"
   assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
 
-  tags = {
-    projects = var.project-tag
-  }
 }
 
 resource "aws_iam_role_policy" "scheduler_send" {
@@ -183,7 +174,4 @@ resource "aws_sesv2_email_identity" "sender" {
   count          = var.ses_sender_email != null ? 1 : 0
   email_identity = var.ses_sender_email
 
-  tags = {
-    projects = var.project-tag
-  }
 }

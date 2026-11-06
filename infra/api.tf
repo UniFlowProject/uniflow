@@ -11,8 +11,7 @@ resource "aws_apigatewayv2_api" "http" {
   # for direct calls such as local development.
 
   tags = {
-    Name     = "${var.project-tag}-http-api"
-    projects = var.project-tag
+    Name = "${var.project-tag}-http-api"
   }
 }
 
@@ -34,8 +33,7 @@ resource "aws_security_group" "vpc_link" {
   vpc_id      = aws_vpc.uniflow_vpc.id
 
   tags = {
-    Name     = "${var.project-tag}-vpc-link-sg"
-    projects = var.project-tag
+    Name = "${var.project-tag}-vpc-link-sg"
   }
 }
 
@@ -53,8 +51,7 @@ resource "aws_apigatewayv2_vpc_link" "this" {
   subnet_ids         = [for s in aws_subnet.private_app : s.id]
 
   tags = {
-    Name     = "${var.project-tag}-vpc-link"
-    projects = var.project-tag
+    Name = "${var.project-tag}-vpc-link"
   }
 }
 
@@ -122,9 +119,6 @@ resource "aws_apigatewayv2_stage" "http_default" {
     })
   }
 
-  tags = {
-    projects = var.project-tag
-  }
 }
 
 # --- WebSocket API shell (routes/integrations/authorizer owned by lambdas repo) ---
@@ -135,14 +129,13 @@ resource "aws_apigatewayv2_api" "websocket" {
   route_selection_expression = "$request.body.action"
 
   tags = {
-    Name     = "${var.project-tag}-websocket-api"
-    projects = var.project-tag
+    Name = "${var.project-tag}-websocket-api"
   }
 }
 
 resource "aws_apigatewayv2_stage" "websocket" {
   api_id      = aws_apigatewayv2_api.websocket.id
-  name        = "prod"
+  name        = local.websocket_stage_name
   auto_deploy = true
 
   default_route_settings {
@@ -153,7 +146,11 @@ resource "aws_apigatewayv2_stage" "websocket" {
   # Access logging omitted: WebSocket stages need an account-level API Gateway
   # CloudWatch Logs role (aws_api_gateway_account), which this stack does not manage.
 
-  tags = {
-    projects = var.project-tag
-  }
+  depends_on = [aws_apigatewayv2_route.ws]
+
+}
+
+locals {
+  websocket_stage_name          = "prod"
+  websocket_management_endpoint = "https://${aws_apigatewayv2_api.websocket.id}.execute-api.${data.aws_region.current.region}.amazonaws.com/${local.websocket_stage_name}"
 }

@@ -5,7 +5,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      projects = var.project-tag
+      Project = var.project-tag
     }
   }
 }
@@ -18,7 +18,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      projects = var.project-tag
+      Project = var.project-tag
     }
   }
 }

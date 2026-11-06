@@ -7,8 +7,7 @@ resource "aws_db_subnet_group" "this" {
   subnet_ids = [for s in aws_subnet.private_data : s.id]
 
   tags = {
-    Name     = "${var.project-tag}-db-subnets"
-    projects = var.project-tag
+    Name = "${var.project-tag}-db-subnets"
   }
 }
 
@@ -18,8 +17,7 @@ resource "aws_security_group" "rds" {
   vpc_id      = aws_vpc.uniflow_vpc.id
 
   tags = {
-    Name     = "${var.project-tag}-rds-sg"
-    projects = var.project-tag
+    Name = "${var.project-tag}-rds-sg"
   }
 }
 
@@ -67,7 +65,6 @@ resource "aws_db_instance" "postgres" {
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 
   tags = {
-    Name     = "${var.project-tag}-postgres"
-    projects = var.project-tag
+    Name = "${var.project-tag}-postgres"
   }
 }

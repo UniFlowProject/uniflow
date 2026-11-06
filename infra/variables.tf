@@ -8,7 +8,7 @@ variable "project-tag" {
 
 variable "aws_region" {
   type        = string
-  description = "AWS region for the shared stack"
+  description = "AWS region for the stack"
   default     = "us-east-1"
 }
 
@@ -85,12 +85,6 @@ variable "enable_nat_gateway" {
 
 # --- Compute ---
 
-variable "create_ecs_cluster" {
-  type        = bool
-  description = "Create the ECS cluster in this stack. It is the single owner: uniflow-academic-service/terraform only reads it through SSM."
-  default     = true
-}
-
 variable "ecs_container_insights" {
   type        = bool
   description = "Enable ECS Container Insights (extra CloudWatch cost)"
@@ -163,7 +157,7 @@ variable "rds_master_username" {
 
 variable "ses_sender_email" {
   type        = string
-  description = "SES sender e-mail identity to create (null = none)"
+  description = "SES sender e-mail identity to create; also used as FROM_EMAIL by the e-mail Lambda (null = none)"
   default     = null
 }
 
@@ -197,4 +191,112 @@ variable "alarm_email" {
   type        = string
   description = "E-mail subscribed to the alarm topic (null = no subscription)"
   default     = null
+}
+
+# --- Academic service ---
+
+variable "container_port" {
+  type        = number
+  description = "Port the Spring Boot app listens on (matches Dockerfile SERVER_PORT and the ALB target group)"
+  default     = 3001
+}
+
+variable "task_cpu" {
+  type        = number
+  description = "Fargate task CPU units"
+  default     = 512
+}
+
+variable "task_memory" {
+  type        = number
+  description = "Fargate task memory in MiB"
+  default     = 1024
+}
+
+variable "desired_count" {
+  type        = number
+  description = "Number of Fargate tasks to run. The first apply has no image in ECR yet, so keep 0, push an image from the academic repo, then raise it"
+  default     = 0
+}
+
+variable "image_tag" {
+  type        = string
+  description = "ECR image tag deployed by the task definition"
+  default     = "latest"
+}
+
+variable "reminder_scheduler" {
+  type        = string
+  description = "Reminder backend: eventbridge (EventBridge Scheduler into the expirations queue) or noop"
+  default     = "eventbridge"
+
+  validation {
+    condition     = contains(["eventbridge", "noop"], var.reminder_scheduler)
+    error_message = "reminder_scheduler must be eventbridge or noop."
+  }
+}
+
+# --- Lambdas ---
+
+variable "lambda_runtime" {
+  type        = string
+  description = "Lambda runtime for every function (the AWS SDK v3 is provided by the runtime)"
+  default     = "nodejs22.x"
+}
+
+variable "lambda_log_retention_days" {
+  type        = number
+  description = "CloudWatch log retention for the Lambda log groups"
+  default     = 7
+}
+
+variable "sqs_max_concurrency" {
+  type        = number
+  description = "Maximum concurrent invocations per SQS event source mapping (minimum 2)"
+  default     = 2
+
+  validation {
+    condition     = var.sqs_max_concurrency >= 2
+    error_message = "sqs_max_concurrency must be at least 2 (SQS event source mapping limit)."
+  }
+}
+
+variable "default_to_email" {
+  type        = string
+  description = "Fallback recipient when the Cognito e-mail lookup fails. Required while SES is in sandbox mode (recipients must be verified); null = no fallback"
+  default     = null
+}
+
+variable "email_timezone" {
+  type        = string
+  description = "IANA timezone used to format deadlines in e-mails"
+  default     = "America/Costa_Rica"
+}
+
+# --- CI (GitHub Actions OIDC) ---
+
+variable "github_repos" {
+  type        = map(string)
+  description = "GitHub repos (org/repo) allowed to assume each CI role via OIDC, keyed by role: academic, frontend, lambdas"
+  default = {
+    academic = "UniFlowProject/uniflow-academic-service"
+    frontend = "UniFlowProject/uniflow-frontend"
+    lambdas  = "UniFlowProject/uniflow"
+  }
+
+  validation {
+    condition     = alltrue([for r in values(var.github_repos) : !can(regex("[*?]", r))])
+    error_message = "github_repos must not contain wildcards (* or ?): the OIDC trust condition uses StringEquals and expects exact org/repo values."
+  }
+
+  validation {
+    condition     = alltrue([for k in ["academic", "frontend", "lambdas"] : contains(keys(var.github_repos), k)])
+    error_message = "github_repos must define academic, frontend and lambdas."
+  }
+}
+
+variable "github_frontend_environment" {
+  type        = string
+  description = "GitHub Actions environment allowed to assume the frontend CI role. A job that declares environment: gets sub=repo:org/repo:environment:<name>, not the ref form"
+  default     = "production"
 }

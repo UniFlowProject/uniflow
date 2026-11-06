@@ -31,8 +31,7 @@ resource "aws_vpc" "uniflow_vpc" {
   enable_dns_hostnames = true
 
   tags = {
-    Name     = "${var.project-tag}-vpc"
-    projects = var.project-tag
+    Name = "${var.project-tag}-vpc"
   }
 }
 
@@ -40,8 +39,7 @@ resource "aws_internet_gateway" "uniflow_igw" {
   vpc_id = aws_vpc.uniflow_vpc.id
 
   tags = {
-    Name     = "${var.project-tag}-igw"
-    projects = var.project-tag
+    Name = "${var.project-tag}-igw"
   }
 }
 
@@ -54,9 +52,8 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name     = "${var.project-tag}-public-${each.key}"
-    projects = var.project-tag
-    Tier     = "public"
+    Name = "${var.project-tag}-public-${each.key}"
+    Tier = "public"
   }
 }
 
@@ -68,9 +65,8 @@ resource "aws_subnet" "private_app" {
   availability_zone = each.value.az
 
   tags = {
-    Name     = "${var.project-tag}-private-app-${each.key}"
-    projects = var.project-tag
-    Tier     = "private-app"
+    Name = "${var.project-tag}-private-app-${each.key}"
+    Tier = "private-app"
   }
 }
 
@@ -82,9 +78,8 @@ resource "aws_subnet" "private_data" {
   availability_zone = each.value.az
 
   tags = {
-    Name     = "${var.project-tag}-private-data-${each.key}"
-    projects = var.project-tag
-    Tier     = "private-data"
+    Name = "${var.project-tag}-private-data-${each.key}"
+    Tier = "private-data"
   }
 }
 
@@ -97,8 +92,7 @@ resource "aws_eip" "nat" {
   domain = "vpc"
 
   tags = {
-    Name     = "${var.project-tag}-nat-eip"
-    projects = var.project-tag
+    Name = "${var.project-tag}-nat-eip"
   }
 }
 
@@ -108,8 +102,7 @@ resource "aws_nat_gateway" "uniflow_nat" {
   subnet_id     = aws_subnet.public["a"].id
 
   tags = {
-    Name     = "${var.project-tag}-nat"
-    projects = var.project-tag
+    Name = "${var.project-tag}-nat"
   }
 
   depends_on = [aws_internet_gateway.uniflow_igw]
@@ -124,8 +117,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name     = "${var.project-tag}-public-rt"
-    projects = var.project-tag
+    Name = "${var.project-tag}-public-rt"
   }
 }
 
@@ -142,8 +134,7 @@ resource "aws_route_table" "private" {
   }
 
   tags = {
-    Name     = "${var.project-tag}-private-rt"
-    projects = var.project-tag
+    Name = "${var.project-tag}-private-rt"
   }
 }
 

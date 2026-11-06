@@ -15,7 +15,7 @@
 **/.env.*
 !**/.env.example
 
-# Terraform (keep .terraform.lock.hcl tracked)
+# Terraform (keep infra/.terraform.lock.hcl tracked)
 **/.terraform/
 **/*.tfstate
 **/*.tfstate.*
@@ -39,5 +39,5 @@ lambdas/**/*.zip
 # Lambda staging output (lambdas/build.sh)
 lambdas/.build/
 
-# Lambda terraform build output
-lambdas/terraform/.dist/
+# Terraform archive_file output
+.dist/

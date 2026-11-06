@@ -34,8 +34,7 @@ resource "aws_acm_certificate" "site" {
   }
 
   tags = {
-    Name     = "${var.project-tag}-site"
-    projects = var.project-tag
+    Name = "${var.project-tag}-site"
   }
 }
 

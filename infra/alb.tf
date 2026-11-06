@@ -6,8 +6,7 @@ resource "aws_security_group" "alb" {
   vpc_id      = aws_vpc.uniflow_vpc.id
 
   tags = {
-    Name     = "${var.project-tag}-alb-sg"
-    projects = var.project-tag
+    Name = "${var.project-tag}-alb-sg"
   }
 }
 
@@ -37,8 +36,7 @@ resource "aws_lb" "internal" {
   enable_deletion_protection = false
 
   tags = {
-    Name     = "${var.project-tag}-internal-alb"
-    projects = var.project-tag
+    Name = "${var.project-tag}-internal-alb"
   }
 }
 
@@ -57,12 +55,9 @@ resource "aws_lb_listener" "http" {
     }
   }
 
-  tags = {
-    projects = var.project-tag
-  }
 }
 
-# The ECS service in uniflow-academic-service/terraform registers its tasks
+# The ECS service in academic.tf registers its tasks
 # in this target group (IP targets, Fargate awsvpc).
 resource "aws_lb_target_group" "academic" {
   name                 = "${var.project-tag}-academic-tg"
@@ -82,8 +77,7 @@ resource "aws_lb_target_group" "academic" {
   }
 
   tags = {
-    Name     = "${var.project-tag}-academic-tg"
-    projects = var.project-tag
+    Name = "${var.project-tag}-academic-tg"
   }
 }
 
@@ -104,7 +98,4 @@ resource "aws_lb_listener_rule" "academic" {
     }
   }
 
-  tags = {
-    projects = var.project-tag
-  }
 }

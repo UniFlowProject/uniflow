@@ -108,8 +108,7 @@ resource "aws_kms_key" "shared" {
   policy                  = data.aws_iam_policy_document.kms.json
 
   tags = {
-    Name     = "${var.project-tag}-kms"
-    projects = var.project-tag
+    Name = "${var.project-tag}-kms"
   }
 }
 

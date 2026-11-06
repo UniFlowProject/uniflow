@@ -5,18 +5,12 @@ resource "aws_cloudwatch_log_group" "api_access" {
   retention_in_days = var.log_retention_days
   kms_key_id        = aws_kms_key.shared.arn
 
-  tags = {
-    projects = var.project-tag
-  }
 }
 
 resource "aws_sns_topic" "alarms" {
   name              = "${var.project-tag}-alarms"
   kms_master_key_id = aws_kms_key.shared.arn
 
-  tags = {
-    projects = var.project-tag
-  }
 }
 
 resource "aws_sns_topic_subscription" "alarm_email" {
@@ -42,7 +36,4 @@ resource "aws_cloudwatch_metric_alarm" "dlq_depth" {
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alarms.arn]
 
-  tags = {
-    projects = var.project-tag
-  }
 }

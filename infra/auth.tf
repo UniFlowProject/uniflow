@@ -32,8 +32,7 @@ resource "aws_cognito_user_pool" "this" {
   }
 
   tags = {
-    Name     = "${var.project-tag}-users"
-    projects = var.project-tag
+    Name = "${var.project-tag}-users"
   }
 }
 

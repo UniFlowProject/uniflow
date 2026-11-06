@@ -1,12 +1,12 @@
 # SQS -> Lambda event source mappings. ReportBatchItemFailures lets each handler return
-# only the failed messageIds; those go back to the queue and, after the root stack's
+# only the failed messageIds; those go back to the queue and, after the
 # maxReceiveCount, to the DLQ.
 
 locals {
   queue_consumers = {
-    process_expiration  = local.platform.expirations_queue_arn
-    send_email          = local.platform.email_queue_arn
-    in_app_notification = local.platform.in_app_queue_arn
+    process_expiration  = aws_sqs_queue.this["expirations"].arn
+    send_email          = aws_sqs_queue.this["email-notifications"].arn
+    in_app_notification = aws_sqs_queue.this["in-app-notifications"].arn
   }
 }
 

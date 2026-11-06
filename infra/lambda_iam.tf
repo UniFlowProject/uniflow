@@ -1,7 +1,7 @@
 # Least-privilege execution role per function: its own log group plus only the actions it needs.
 
 locals {
-  kms_key_arn = local.platform.kms_key_arn
+  kms_key_arn = aws_kms_key.shared.arn
 
   # DynamoDB, SQS and SNS use the platform's customer-managed KMS key.
   kms_actions = ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
@@ -27,8 +27,8 @@ resource "aws_iam_role" "lambda" {
 }
 
 locals {
-  notifications_table_arn = local.platform.dynamodb_notifications_arn
-  connections_table_arn   = local.platform.dynamodb_connections_arn
+  notifications_table_arn = aws_dynamodb_table.notifications.arn
+  connections_table_arn   = aws_dynamodb_table.connections.arn
 
   kms_statement = { sid = "Kms", actions = local.kms_actions, resources = [local.kms_key_arn] }
 
@@ -55,24 +55,24 @@ locals {
     ]
 
     process_expiration = [
-      { sid = "ConsumeExpirations", actions = local.sqs_consume, resources = [local.platform.expirations_queue_arn] },
-      { sid = "PublishNotifications", actions = ["sns:Publish"], resources = [local.platform.sns_topic_arn] },
+      { sid = "ConsumeExpirations", actions = local.sqs_consume, resources = [aws_sqs_queue.this["expirations"].arn] },
+      { sid = "PublishNotifications", actions = ["sns:Publish"], resources = [aws_sns_topic.notifications.arn] },
       local.kms_statement,
     ]
 
     send_email = [
-      { sid = "ConsumeEmailQueue", actions = local.sqs_consume, resources = [local.platform.email_queue_arn] },
-      { sid = "SendEmail", actions = ["ses:SendEmail"], resources = ["arn:aws:ses:${var.aws_region}:${local.account_id}:identity/*"] },
-      { sid = "ResolveRecipient", actions = ["cognito-idp:AdminGetUser"], resources = [local.platform.cognito_user_pool_arn] },
+      { sid = "ConsumeEmailQueue", actions = local.sqs_consume, resources = [aws_sqs_queue.this["email-notifications"].arn] },
+      { sid = "SendEmail", actions = ["ses:SendEmail"], resources = ["arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/*"] },
+      { sid = "ResolveRecipient", actions = ["cognito-idp:AdminGetUser"], resources = [aws_cognito_user_pool.this.arn] },
       local.kms_statement,
     ]
 
     in_app_notification = [
-      { sid = "ConsumeInAppQueue", actions = local.sqs_consume, resources = [local.platform.in_app_queue_arn] },
+      { sid = "ConsumeInAppQueue", actions = local.sqs_consume, resources = [aws_sqs_queue.this["in-app-notifications"].arn] },
       { sid = "PutNotification", actions = ["dynamodb:PutItem"], resources = [local.notifications_table_arn] },
       { sid = "ReadConnections", actions = ["dynamodb:Query"], resources = ["${local.connections_table_arn}/index/user_id-index"] },
       { sid = "DropStaleConnections", actions = ["dynamodb:DeleteItem"], resources = [local.connections_table_arn] },
-      { sid = "PushToSockets", actions = ["execute-api:ManageConnections"], resources = ["${local.platform.websocket_api_execution_arn}/*/POST/@connections/*"] },
+      { sid = "PushToSockets", actions = ["execute-api:ManageConnections"], resources = ["${aws_apigatewayv2_api.websocket.execution_arn}/*/POST/@connections/*"] },
       local.kms_statement,
     ]
 

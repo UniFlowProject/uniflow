@@ -28,8 +28,7 @@ resource "aws_dynamodb_table" "notifications" {
   }
 
   tags = {
-    Name     = "${var.project-tag}-notifications"
-    projects = var.project-tag
+    Name = "${var.project-tag}-notifications"
   }
 }
 
@@ -69,7 +68,6 @@ resource "aws_dynamodb_table" "connections" {
   }
 
   tags = {
-    Name     = "${var.project-tag}-connections"
-    projects = var.project-tag
+    Name = "${var.project-tag}-connections"
   }
 }

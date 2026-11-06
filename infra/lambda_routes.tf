@@ -1,12 +1,12 @@
 # Routes on the platform's APIs: REST on the existing HTTP API (Cognito JWT authorizer
-# owned by the root stack) and the push channel on the WebSocket API.
+# defined in api.tf) and the push channel on the WebSocket API.
 
 # --- HTTP API: /api/notifications/v2/* -> Lambda proxy (payload 2.0) ---
 
 locals {
-  http_api_id            = local.platform.http_api_id
-  http_authorizer_id     = local.platform.http_api_authorizer_id
-  http_api_execution_arn = local.platform.http_api_execution_arn
+  http_api_id            = aws_apigatewayv2_api.http.id
+  http_authorizer_id     = aws_apigatewayv2_authorizer.cognito.id
+  http_api_execution_arn = aws_apigatewayv2_api.http.execution_arn
 
   # Same paths the SPA already calls (the userId segment must equal the token's sub).
   rest_routes = {
@@ -52,8 +52,8 @@ resource "aws_lambda_permission" "rest" {
 # --- WebSocket API: $connect (Lambda authorizer) and $disconnect ---
 
 locals {
-  ws_api_id            = local.platform.websocket_api_id
-  ws_api_execution_arn = local.platform.websocket_api_execution_arn
+  ws_api_id            = aws_apigatewayv2_api.websocket.id
+  ws_api_execution_arn = aws_apigatewayv2_api.websocket.execution_arn
 }
 
 resource "aws_apigatewayv2_authorizer" "ws" {

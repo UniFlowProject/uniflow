@@ -62,7 +62,7 @@ output "websocket_api_execution_arn" {
 
 output "websocket_management_endpoint" {
   description = "WebSocket @connections management endpoint"
-  value       = local.ssm_strings.websocket_management_endpoint
+  value       = local.websocket_management_endpoint
 }
 
 output "api_endpoint" {
@@ -135,7 +135,37 @@ output "kms_key_arn" {
   value       = aws_kms_key.shared.arn
 }
 
-output "ssm_parameter_names" {
-  description = "All published /<project>/<name> contract parameters"
-  value       = sort([for p in aws_ssm_parameter.contract : p.name])
+output "function_names" {
+  description = "Deployed Lambda function names, keyed by role in the notifications flow"
+  value       = { for k, f in aws_lambda_function.this : k => f.function_name }
+}
+
+output "rest_routes" {
+  description = "Notification routes added to the HTTP API"
+  value       = values(local.rest_routes)
+}
+
+output "websocket_url" {
+  description = "Value for the SPA's VITE_NOTIFICATIONS_WEB_APP_URL"
+  value       = "wss://${aws_apigatewayv2_api.websocket.id}.execute-api.${data.aws_region.current.region}.amazonaws.com/${local.websocket_stage_name}"
+}
+
+output "ecr_repository_url" {
+  description = "ECR repository the academic service CI pushes to"
+  value       = aws_ecr_repository.academic.repository_url
+}
+
+output "ecs_cluster_name" {
+  description = "ECS cluster name (CI forces new deployments on it)"
+  value       = aws_ecs_cluster.this.name
+}
+
+output "ecs_service_name" {
+  description = "Academic service name"
+  value       = aws_ecs_service.academic.name
+}
+
+output "github_actions_role_arns" {
+  description = "Role ARN for each CI target; set it as the AWS_ROLE_ARN variable in the matching GitHub repo"
+  value       = { for k, r in aws_iam_role.github_actions : k => r.arn }
 }

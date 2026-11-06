@@ -36,3 +36,9 @@ rds_skip_final_snapshot   = true  # demo only
 # rds_deletion_protection  = true
 # rds_skip_final_snapshot  = false
 # rds_backup_retention_days = 7
+
+# Academic service: 0 until an image exists in ECR, then raise it
+# desired_count = 1
+
+# Lambdas
+# default_to_email = "me@example.com"

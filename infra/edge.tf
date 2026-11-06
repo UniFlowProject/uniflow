@@ -11,8 +11,7 @@ resource "aws_s3_bucket" "spa" {
   bucket = "${var.project-tag}-spa-${data.aws_caller_identity.current.account_id}"
 
   tags = {
-    Name     = "${var.project-tag}-spa"
-    projects = var.project-tag
+    Name = "${var.project-tag}-spa"
   }
 }
 
@@ -159,8 +158,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   }
 
   tags = {
-    Name     = "${var.project-tag}-cloudfront-waf"
-    projects = var.project-tag
+    Name = "${var.project-tag}-cloudfront-waf"
   }
 }
 
@@ -278,7 +276,6 @@ resource "aws_cloudfront_distribution" "spa" {
   }
 
   tags = {
-    Name     = "${var.project-tag}-cdn"
-    projects = var.project-tag
+    Name = "${var.project-tag}-cdn"
   }
 }
