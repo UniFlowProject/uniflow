@@ -1,0 +1,67 @@
+name: Test and deploy Lambdas
+
+# Code-only deploys. Infrastructure (functions, roles, routes) is applied with terraform
+# from ./terraform; the next terraform apply re-uploads whatever is built locally.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*/**'
+      - 'build.sh'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  PROJECT: uniflow
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run unit tests
+        run: |
+          for dir in notifications_api process_expiration sendEmail sendExpirationReminderInAppNotification \
+                     handle_notifications_ws_connection handle_notifications_ws_disconnection lambda_authorizer; do
+            if [ -d "$dir/test" ]; then
+              (cd "$dir" && npm ci --no-audit --no-fund && npm test)
+            fi
+          done
+
+      - name: Stage Lambda code
+        run: ./build.sh
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update function code
+        run: |
+          deploy() { # <function suffix> <build dir>
+            (cd ".build/$2" && zip -qr "../$2.zip" .)
+            aws lambda update-function-code \
+              --function-name "${PROJECT}-$1" \
+              --zip-file "fileb://.build/$2.zip" \
+              --publish > /dev/null
+            echo "deployed ${PROJECT}-$1"
+          }
+          for fn in create list unread-count mark-read delete; do deploy "api-$fn" notifications_api; done
+          deploy process-expiration process_expiration
+          deploy send-email sendEmail
+          deploy in-app-notification sendExpirationReminderInAppNotification
+          deploy ws-authorizer lambda_authorizer
+          deploy ws-connect handle_notifications_ws_connection
+          deploy ws-disconnect handle_notifications_ws_disconnection

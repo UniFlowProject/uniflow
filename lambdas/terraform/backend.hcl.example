@@ -1,0 +1,2 @@
+bucket = "uniflow-terraform-state-<account-id>"
+region = "us-east-1"
