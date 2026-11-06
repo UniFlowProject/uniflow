@@ -1,0 +1,17 @@
+{
+  "name": "uniflow-notifications-api",
+  "version": "1.0.0",
+  "description": "REST handlers for the serverless notifications API (HTTP API payload 2.0, Cognito JWT authorizer).",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.696.0",
+    "@aws-sdk/lib-dynamodb": "^3.696.0"
+  }
+}
