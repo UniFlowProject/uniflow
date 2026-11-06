@@ -15,8 +15,8 @@ aws_region  = "us-east-1"
 # ses_sender_email = "no-reply@example.com"
 # alarm_email      = "ops@example.com"
 
-# --- Cheap demo profile (these are the variable defaults, except the three
-# teardown-friendly overrides below) ---
+# --- Cheap demo profile (these are the variable defaults, except the two
+# teardown-friendly overrides below, plus a third commented one) ---
 enable_waf                = false
 enable_nat_gateway        = false
 enable_guardduty          = false

@@ -23,7 +23,7 @@ export const createHandler = ({
 
     const nowSeconds = Math.floor(now() / 1000);
 
-    // Attribute names follow the table schema (terraform/dynamodb.tf).
+    // Attribute names follow the table schema (infra/dynamodb.tf).
     await ddb.send(
       new PutCommand({
         TableName: tableName,
