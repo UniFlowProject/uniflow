@@ -21,13 +21,13 @@ Shared layer only. Services and Lambdas live in their own repos and consume this
 | `ssm.tf` | `/<project>/<name>` contract parameters |
 | `providers.tf`, `versions.tf`, `backend.tf`, `variables.tf`, `outputs.tf` | Providers, version pins, backend template, inputs, outputs |
 
-Owned by other repos: ECS services/task defs (they register into the ALB target groups), ECR, service log groups, GitHub OIDC roles, Lambda functions, and their HTTP/WebSocket routes, integrations and WebSocket authorizer.
+Owned by other stacks: ECS services/task defs (they register into the ALB target groups), ECR, service log groups, GitHub OIDC roles, and the serverless notifications stack in `lambdas/terraform` (Lambda functions and roles, `/api/notifications/v2/*` HTTP routes on this stack's JWT authorizer, WebSocket routes + authorizer, SQS event source mappings, CI deploy role). Notifications are 100% serverless; `uniflow-notification-service` (NestJS) is not deployed.
 
 ## Apply order
 
 1. `cp backend.hcl.example backend.hcl`, edit, uncomment `backend.tf`, then `terraform init -backend-config=backend.hcl` (or `terraform init` for local state).
 2. `terraform apply` this stack first (existing VPC resources keep their addresses).
-3. Then apply `uniflow-academic-service/terraform`, and the lambdas repo.
+3. Then apply `uniflow-academic-service/terraform` (it creates the account-wide GitHub OIDC provider), then `lambdas/terraform` (run `lambdas/build.sh` first; see `lambdas/terraform` variables for `ses_sender_email` / `default_to_email`).
 
 ## Reading outputs from a service repo
 
@@ -73,6 +73,6 @@ The public zone `uniflow.fabian-vargas.com` is delegated from the registrar and 
 - The RDS secret uses the default Secrets Manager key; consumers need `secretsmanager:GetSecretValue` on `rds_secret_arn`. Consider a `postgres` parameter group with `rds.force_ssl=1`.
 - SNS subscriptions use the SNS envelope (raw delivery off).
 - GuardDuty: leave `enable_guardduty=false` if the account already has a detector.
-- WebSocket stage `prod` is created with no routes; if AWS rejects an empty deployment, create it after the lambdas repo adds routes.
+- WebSocket stage `prod` is created with no routes; the `lambdas/terraform` stack adds `$connect` / `$disconnect` (auto-deploy is on). If AWS rejects the empty deployment, apply `lambdas/terraform` first for the stage.
 - State is local until the S3 backend in `backend.tf` is enabled (see `backend.hcl.example`).
 - `terraform apply` was not run; only `fmt`, `init`, `validate` and `plan`.

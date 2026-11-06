@@ -35,3 +35,9 @@ target/
 coverage/
 lambdas/**/*.zip
 *.log
+
+# Lambda staging output (lambdas/build.sh)
+lambdas/.build/
+
+# Lambda terraform build output
+lambdas/terraform/.dist/

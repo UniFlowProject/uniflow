@@ -2,7 +2,7 @@
 
 `docker-compose.dev.yml` levanta en local, sobre [Floci](https://floci.io/aws/) (emulador de AWS, MIT), un Cognito compartido y un API Gateway (HTTP API) con un Lambda authorizer delante de los microservicios `academic` y `notification`. El frontend (`UniFlow-Frontend`) inicia sesión contra el Hosted UI de Cognito y llama a los servicios a través del gateway. Solo para desarrollo.
 
-Alcance: login desde el frontend y llamadas autenticadas a academic y notification. Las tareas viven en academic. Fuera de alcance: WebSocket / push en tiempo real, el resto de lambdas, terraform.
+Alcance: login desde el frontend y llamadas autenticadas a academic y notification. Las tareas viven en academic. Fuera de alcance: WebSocket / push en tiempo real, el resto de lambdas, terraform. Nota: el servicio NestJS `notification` es solo para desarrollo local; en AWS las notificaciones son 100% serverless (`lambdas/`: API REST en Lambdas + DynamoDB, push por WebSocket API, stack en `lambdas/terraform`) y el servicio NestJS no se despliega.
 
 ## Arquitectura
 
