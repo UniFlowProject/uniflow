@@ -78,6 +78,13 @@ data "archive_file" "lambda" {
   type        = "zip"
   source_dir  = "${local.build_dir}/${each.key}"
   output_path = "${path.module}/.dist/${each.key}.zip"
+
+  lifecycle {
+    precondition {
+      condition     = length(fileset("${local.build_dir}/${each.key}", "*")) > 0
+      error_message = "${local.build_dir}/${each.key} is missing or empty: run lambdas/build.sh before terraform plan/apply."
+    }
+  }
 }
 
 resource "aws_cloudwatch_log_group" "lambda" {
@@ -107,6 +114,12 @@ resource "aws_lambda_function" "this" {
   logging_config {
     log_format = "Text"
     log_group  = aws_cloudwatch_log_group.lambda[each.key].name
+  }
+
+  # CI deploys the code; Terraform only owns the configuration. The archive
+  # still seeds the first create.
+  lifecycle {
+    ignore_changes = [filename, source_code_hash]
   }
 
   depends_on = [aws_iam_role_policy.lambda]
