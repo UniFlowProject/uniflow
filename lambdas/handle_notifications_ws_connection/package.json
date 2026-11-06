@@ -1,0 +1,12 @@
+{
+  "name": "uniflow-ws-connect-disconnect",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.696.0",
+    "@aws-sdk/lib-dynamodb": "^3.696.0"
+  }
+}

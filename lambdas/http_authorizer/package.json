@@ -1,0 +1,13 @@
+{
+  "name": "uniflow-http-authorizer",
+  "version": "1.0.0",
+  "description": "API Gateway HTTP API Lambda authorizer (payload 2.0, simple responses) that validates Cognito access tokens.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  }
+}

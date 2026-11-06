@@ -1,0 +1,11 @@
+{
+  "name": "uniflow-ws-authorizer",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "aws-jwt-verify": "^5.1.0"
+  }
+}
