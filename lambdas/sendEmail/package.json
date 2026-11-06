@@ -1,0 +1,16 @@
+{
+  "name": "uniflow-send-email",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.696.0",
+    "@aws-sdk/client-sesv2": "^3.696.0"
+  }
+}

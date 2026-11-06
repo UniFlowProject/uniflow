@@ -9,5 +9,8 @@
     "@aws-sdk/client-dynamodb": "^3.696.0",
     "@aws-sdk/lib-dynamodb": "^3.696.0",
     "@aws-sdk/client-apigatewaymanagementapi": "^3.696.0"
+  },
+  "scripts": {
+    "test": "node --test test/"
   }
 }

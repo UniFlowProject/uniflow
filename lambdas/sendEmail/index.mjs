@@ -1,33 +1,74 @@
-// Uniflow - Lambda consumidora de SQS (suscrita al topic SNS) que envía emails con SES
-// Runtime: Node.js 20.x / 22.x (AWS SDK v3 ya viene incluido en el runtime)
+// Uniflow - SQS consumer (queue subscribed to the SNS topic) that sends e-mails through SES
+// Runtime: Node.js 22.x (AWS SDK v3 is bundled with the runtime)
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
+import { CognitoIdentityProviderClient, AdminGetUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 
-const ses = new SESv2Client({});
-
-const FROM_EMAIL = process.env.FROM_EMAIL;               // remitente verificado en SES
-const DEFAULT_TO_EMAIL = process.env.DEFAULT_TO_EMAIL;   // para pruebas (sandbox de SES)
-const TIMEZONE = process.env.TIMEZONE || "America/Costa_Rica";
-
-export const handler = async (event) => {
-  const batchItemFailures = [];
-
-  for (const record of event.Records) {
-    try {
-      const payload = parseRecord(record);
-      await handleNotification(payload);
-    } catch (err) {
-      console.error(JSON.stringify({
-        level: "error",
-        messageId: record.messageId,
-        error: err.message,
-      }));
-      // Solo este mensaje vuelve a la cola (y eventualmente a la DLQ)
-      batchItemFailures.push({ itemIdentifier: record.messageId });
+/**
+ * Resolves a user's e-mail address from Cognito (the task's userId is the Cognito `sub`,
+ * which AdminGetUser accepts as Username). Falls back to DEFAULT_TO_EMAIL, which is the
+ * only workable recipient while SES is in sandbox mode.
+ */
+export function createEmailResolver({
+  cognito,
+  userPoolId = process.env.USER_POOL_ID,
+  defaultToEmail = process.env.DEFAULT_TO_EMAIL,
+} = {}) {
+  return async (userId) => {
+    if (userPoolId) {
+      try {
+        const client = cognito ?? new CognitoIdentityProviderClient({});
+        const { UserAttributes = [] } = await client.send(
+          new AdminGetUserCommand({ UserPoolId: userPoolId, Username: userId })
+        );
+        const email = UserAttributes.find((a) => a.Name === "email")?.Value;
+        if (email) return email;
+      } catch (err) {
+        console.warn(JSON.stringify({ level: "warn", msg: "Cognito lookup failed", userId, error: err.message }));
+      }
     }
-  }
+    if (defaultToEmail) return defaultToEmail;
+    throw new Error(`Could not resolve an email address for ${userId}`);
+  };
+}
 
-  return { batchItemFailures };
+export const createHandler = ({
+  ses = new SESv2Client({}),
+  resolveEmail = createEmailResolver(),
+  fromEmail = process.env.FROM_EMAIL,               // sender identity verified in SES
+  timezone = process.env.TIMEZONE || "America/Costa_Rica",
+} = {}) => {
+  const handleNotification = (payload) => {
+    switch (payload.type) {
+      case "task.due_reminder":
+        return sendDueReminder(payload, { ses, resolveEmail, fromEmail, timezone });
+      default:
+        // Unknown types are not retried: log and drop
+        console.warn(JSON.stringify({ level: "warn", msg: "Unsupported type", type: payload.type }));
+    }
+  };
+
+  return async (event) => {
+    const batchItemFailures = [];
+
+    for (const record of event.Records) {
+      try {
+        await handleNotification(parseRecord(record));
+      } catch (err) {
+        console.error(JSON.stringify({
+          level: "error",
+          messageId: record.messageId,
+          error: err.message,
+        }));
+        // Only this message goes back to the queue (and eventually to the DLQ)
+        batchItemFailures.push({ itemIdentifier: record.messageId });
+      }
+    }
+
+    return { batchItemFailures };
+  };
 };
+
+export const handler = createHandler();
 
 // El body de SQS trae el envelope de SNS; "Message" es otro JSON en string.
 // Si activás "raw message delivery" en la suscripción, el body ya es el payload.
@@ -39,26 +80,16 @@ function parseRecord(record) {
   return body;
 }
 
-async function handleNotification(payload) {
-  switch (payload.type) {
-    case "task.due_reminder":
-      return sendDueReminder(payload);
-    default:
-      // Tipos desconocidos no se reintentan: se loguean y se descartan
-      console.warn(JSON.stringify({ level: "warn", msg: "Tipo no soportado", type: payload.type }));
-  }
-}
-
-async function sendDueReminder({ taskId, userId, title, dueDate, leadHours }) {
+async function sendDueReminder({ taskId, userId, title, dueDate, leadHours }, { ses, resolveEmail, fromEmail, timezone }) {
   if (!taskId || !userId || !title || !dueDate) {
     throw new Error("Payload incompleto para task.due_reminder");
   }
 
-  const to = await resolveUserEmail(userId);
+  const to = await resolveEmail(userId);
   const dueFormatted = new Intl.DateTimeFormat("es-CR", {
     dateStyle: "full",
     timeStyle: "short",
-    timeZone: TIMEZONE,
+    timeZone: timezone,
   }).format(new Date(dueDate));
 
   const subject = `Recordatorio: "${title}" vence en ${leadHours} horas`;
@@ -81,7 +112,7 @@ async function sendDueReminder({ taskId, userId, title, dueDate, leadHours }) {
     </div>`;
 
   const result = await ses.send(new SendEmailCommand({
-    FromEmailAddress: FROM_EMAIL,
+    FromEmailAddress: fromEmail,
     Destination: { ToAddresses: [to] },
     Content: {
       Simple: {
@@ -101,12 +132,6 @@ async function sendDueReminder({ taskId, userId, title, dueDate, leadHours }) {
     userId,
     sesMessageId: result.MessageId,
   }));
-}
-
-// TODO: reemplazar por la búsqueda real del usuario (DynamoDB, RDS, Cognito, etc.)
-async function resolveUserEmail(userId) {
-  if (DEFAULT_TO_EMAIL) return DEFAULT_TO_EMAIL;
-  throw new Error(`No se pudo resolver el email de ${userId}`);
 }
 
 function escapeHtml(str) {

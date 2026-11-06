@@ -1,37 +1,42 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const TABLE_NAME = process.env.CONNECTIONS_TABLE;
-
-// Backstop de limpieza: API Gateway ya fuerza el cierre a las 2h,
-// dejamos margen para que el TTL nunca gane esa carrera.
+// Cleanup backstop: API Gateway force-closes connections after 2h; the margin
+// keeps the TTL from ever winning that race.
 const TTL_SECONDS = 3 * 60 * 60;
 
-export const handler = async (event) => {
-  const connectionId = event.requestContext.connectionId;
-  const userId = event.requestContext.authorizer?.userId;
+export const createHandler = ({
+  ddb = DynamoDBDocumentClient.from(new DynamoDBClient({})),
+  tableName = process.env.CONNECTIONS_TABLE,
+  now = Date.now,
+} = {}) =>
+  async (event) => {
+    const connectionId = event.requestContext.connectionId;
+    const userId = event.requestContext.authorizer?.userId;
 
-  if (!userId) {
-    // No debería pasar si el authorizer corrió antes, pero sin userId
-    // no hay a quién asociar la conexión.
-    console.error("Falta userId en el contexto del authorizer");
-    return { statusCode: 500, body: "Missing authorizer context" };
-  }
+    if (!userId) {
+      // Should not happen when the authorizer ran first, but without a userId
+      // there is nobody to associate the connection with.
+      console.error("Missing userId in the authorizer context");
+      return { statusCode: 500, body: "Missing authorizer context" };
+    }
 
-  const now = Math.floor(Date.now() / 1000);
+    const nowSeconds = Math.floor(now() / 1000);
 
-  await ddb.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        connectionId,
-        userId,
-        connectedAt: now,
-        ttl: now + TTL_SECONDS,
-      },
-    })
-  );
+    // Attribute names follow the table schema (terraform/dynamodb.tf).
+    await ddb.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: {
+          connection_id: connectionId,
+          user_id: userId,
+          connectedAt: nowSeconds,
+          ttl: nowSeconds + TTL_SECONDS,
+        },
+      })
+    );
 
-  return { statusCode: 200, body: "Connected" };
-};
+    return { statusCode: 200, body: "Connected" };
+  };
+
+export const handler = createHandler();
