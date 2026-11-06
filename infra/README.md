@@ -95,6 +95,9 @@ Pre-steps, in order:
 4. Export the Cognito users (for example `aws cognito-idp list-users`); user pool passwords cannot be exported.
 5. Set `rds_deletion_protection = false` (and `cognito_deletion_protection = "INACTIVE"` if it was set) in the old stacks and apply before destroying them.
 6. The final snapshot identifier is fixed in `database.tf` (`<project-tag>-postgres-final`). If a snapshot with that name already exists, destroy fails: delete or rename it first.
+7. The old stacks have no `force_destroy` / `force_delete`: empty the SPA bucket (it is versioned, so delete every object version and delete marker, not just `aws s3 rm`) and delete the ECR repository `<project-tag>/academic-service` (`aws ecr delete-repository --force`), or destroy fails with `BucketNotEmpty` / a non-empty repository.
+
+The old stack code is in git history: `terraform/` and `lambdas/terraform` at `df400c6` in this repo, and `terraform/` in the service repos just before the commit "remove terraform, infrastructure now lives in the central repo".
 
 Then:
 
@@ -118,3 +121,7 @@ The old SSM contract parameters (`/uniflow/*`) are no longer published: nothing 
 - GuardDuty: leave `enable_guardduty=false` if the account already has a detector.
 - SPA fallback uses a CloudFront Function on the default behavior instead of distribution-wide 403/404 custom error responses, so real API 403/404 responses are not rewritten to `index.html`.
 - The WebSocket stage depends on the WebSocket routes so the first deployment is not empty.
+
+## Tearing down
+
+This stack is meant to be disposable. `terraform destroy` removes everything it created, including a non-empty SPA bucket (`force_destroy`) and the ECR repository with its images (`force_delete`). The Route53 zone is only read, so it survives. Keep this in mind if you ever reuse the stack outside a demo: both flags delete data without asking.
