@@ -70,11 +70,6 @@ output "api_endpoint" {
   value       = aws_apigatewayv2_api.http.api_endpoint
 }
 
-output "cloudmap_academic_service_arn" {
-  description = "Cloud Map service the academic ECS service registers into"
-  value       = aws_service_discovery_service.academic.arn
-}
-
 output "vpc_link_sg_id" {
   description = "Security group of the API Gateway VPC link (allowed source for service security groups)"
   value       = aws_security_group.vpc_link.id

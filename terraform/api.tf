@@ -1,6 +1,6 @@
-# API Gateway: HTTP API (Cognito JWT -> VPC Link -> Cloud Map -> ECS tasks) and the WebSocket API shell.
+# API Gateway: HTTP API (Cognito JWT -> VPC Link -> internal ALB -> ECS tasks) and the WebSocket API shell.
 
-# --- HTTP API (REST traffic -> Cloud Map services via VPC Link) ---
+# --- HTTP API (REST traffic -> internal ALB via VPC Link) ---
 
 resource "aws_apigatewayv2_api" "http" {
   name          = "${var.project-tag}-http-api"
@@ -39,8 +39,7 @@ resource "aws_security_group" "vpc_link" {
   }
 }
 
-# Targets are service tasks inside the VPC; each service stack opens its own
-# port to this security group.
+# Targets are inside the VPC (the internal ALB); the ALB security group admits this one.
 resource "aws_vpc_security_group_egress_rule" "vpc_link_to_vpc" {
   security_group_id = aws_security_group.vpc_link.id
   description       = "Traffic to service tasks inside the VPC"
@@ -59,15 +58,14 @@ resource "aws_apigatewayv2_vpc_link" "this" {
   }
 }
 
-# Private integration through AWS Cloud Map: API Gateway resolves the healthy
-# instances registered by the ECS service, so no load balancer is needed.
+# Private integration through the internal ALB listener (alb.tf) via the VPC link.
 # Same contract as docker/floci/init.sh: the /api/academic/v2 prefix is
 # stripped and the service receives /<proxy>.
 resource "aws_apigatewayv2_integration" "academic" {
   api_id             = aws_apigatewayv2_api.http.id
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
-  integration_uri    = aws_service_discovery_service.academic.arn
+  integration_uri    = aws_lb_listener.http.arn
   connection_type    = "VPC_LINK"
   connection_id      = aws_apigatewayv2_vpc_link.this.id
 
@@ -80,7 +78,7 @@ resource "aws_apigatewayv2_integration" "academic_health" {
   api_id             = aws_apigatewayv2_api.http.id
   integration_type   = "HTTP_PROXY"
   integration_method = "GET"
-  integration_uri    = aws_service_discovery_service.academic.arn
+  integration_uri    = aws_lb_listener.http.arn
   connection_type    = "VPC_LINK"
   connection_id      = aws_apigatewayv2_vpc_link.this.id
 

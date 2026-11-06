@@ -9,9 +9,9 @@ locals {
     ecs_cluster_name              = local.ecs_cluster_name
     ecs_cluster_arn               = local.ecs_cluster_arn
     vpc_link_sg_id                = aws_security_group.vpc_link.id
-    cloudmap_namespace_id         = aws_service_discovery_private_dns_namespace.this.id
-    cloudmap_academic_service_arn = aws_service_discovery_service.academic.arn
-    cloudmap_academic_service_id  = aws_service_discovery_service.academic.id
+    alb_sg_id                     = aws_security_group.alb.id
+    alb_listener_arn              = aws_lb_listener.http.arn
+    academic_target_group_arn     = aws_lb_target_group.academic.arn
     rds_endpoint                  = aws_db_instance.postgres.endpoint
     rds_address                   = aws_db_instance.postgres.address
     rds_port                      = tostring(aws_db_instance.postgres.port)
