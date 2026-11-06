@@ -152,18 +152,8 @@ resource "aws_apigatewayv2_stage" "websocket" {
     throttling_rate_limit  = 50
   }
 
-  access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.api_access.arn
-    format = jsonencode({
-      requestId    = "$context.requestId"
-      ip           = "$context.identity.sourceIp"
-      requestTime  = "$context.requestTime"
-      routeKey     = "$context.routeKey"
-      status       = "$context.status"
-      eventType    = "$context.eventType"
-      connectionId = "$context.connectionId"
-    })
-  }
+  # Access logging omitted: WebSocket stages need an account-level API Gateway
+  # CloudWatch Logs role (aws_api_gateway_account), which this stack does not manage.
 
   tags = {
     projects = var.project-tag
