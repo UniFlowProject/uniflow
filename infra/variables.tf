@@ -215,7 +215,7 @@ variable "task_memory" {
 
 variable "desired_count" {
   type        = number
-  description = "Number of Fargate tasks to run. The first apply has no image in ECR yet, so keep 0, push an image from the academic repo, then raise it"
+  description = "Number of Fargate tasks to run. The first apply has no image in ECR yet, so keep 0, push an image from the academic repo, then set desired_count in terraform.tfvars: any later apply resets the service to this value"
   default     = 0
 }
 

@@ -10,7 +10,7 @@ locals {
 # --- ECR ---
 
 resource "aws_ecr_repository" "academic" {
-  name                 = "uniflow/academic-service"
+  name                 = "${var.project-tag}/academic-service"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
@@ -217,8 +217,9 @@ resource "aws_ecs_service" "academic" {
     container_port   = var.container_port
   }
 
-  lifecycle {
-    ignore_changes = [task_definition]
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
 
   depends_on = [aws_lb_listener_rule.academic]

@@ -61,7 +61,7 @@ resource "aws_lb_listener" "http" {
 # in this target group (IP targets, Fargate awsvpc).
 resource "aws_lb_target_group" "academic" {
   name                 = "${var.project-tag}-academic-tg"
-  port                 = 3001
+  port                 = var.container_port
   protocol             = "HTTP"
   target_type          = "ip"
   vpc_id               = aws_vpc.uniflow_vpc.id
