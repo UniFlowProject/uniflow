@@ -1,6 +1,6 @@
 # Sub-repositories (each has its own .git)
 /uniflow-academic-service/
-/UniFlow-Frontend/
+/uniflow-frontend/
 /uniflow-notification-service/
 /uniflow-tasks-service/
 
