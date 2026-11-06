@@ -10,7 +10,7 @@ during the audit).
 
 ---
 
-## 1. Terraform audit (`terraform/`)
+## 1. Terraform audit (`infra/`)
 
 `terraform fmt -check` and `terraform validate` pass. No plan or apply was run.
 A backup of the pre-change directory was taken before editing.
