@@ -1,0 +1,153 @@
+# Local development platform: shared Cognito + API Gateway with a Lambda authorizer in front of the
+# academic and notification microservices, all on top of Floci (local AWS emulator, https://floci.io/aws/).
+# See DEV.md. DEV ONLY: every value below is a throwaway default, and Floci mounts the Docker socket
+# (root-equivalent on the host), so keep this stack on your own machine.
+#
+#   docker compose -f docker-compose.dev.yml up -d --build
+#   TOKEN=$(scripts/dev-token.sh user-a)
+#   curl -H "Authorization: Bearer $TOKEN" http://uniflow.execute-api.localhost.floci.io:4566/api/academic/v2/periods
+#   docker compose -f docker-compose.dev.yml down -v
+#
+# This stack and the standalone one in uniflow-academic-service both publish port 4566: run only one at a time.
+name: uniflow-dev
+
+x-floci-credentials: &floci-credentials
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_REGION: us-east-1
+
+x-frontend-origin: &frontend-origin ${FRONTEND_ORIGIN:-http://localhost:3000}
+
+services:
+  # Local AWS emulator: Cognito (OIDC issuer, JWKS, Hosted UI), Lambda and API Gateway. It starts the Lambda
+  # containers through the Docker socket and attaches them to the compose network below.
+  #
+  # ISSUER: Cognito builds `iss` as FLOCI_BASE_URL/<pool id>. localhost.floci.io is a public DNS name that
+  # resolves to 127.0.0.1, so on the host (browser, curl) http://localhost.floci.io:4566 reaches the published
+  # port. The network alias gives the same name to this container inside the compose network, so the services,
+  # the authorizer Lambda and the init job use the very same URL: one issuer valid from both sides.
+  floci:
+    image: floci/floci:2.3.0
+    environment:
+      FLOCI_BASE_URL: http://localhost.floci.io:4566
+      FLOCI_SERVICES_DOCKER_NETWORK: uniflow-dev
+      # Floci answers CORS preflights only for allow-listed origins (needed by the SPA's POST to the token endpoint).
+      FLOCI_SECURITY_EXTRA_CORS_ALLOWED_ORIGINS: *frontend-origin
+      FLOCI_SECURITY_EXTRA_CORS_ALLOWED_HEADERS: "*"
+    ports:
+      - "127.0.0.1:4566:4566"
+    volumes:
+      # Root-equivalent on the host: dev-only.
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      default:
+        aliases:
+          - localhost.floci.io
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot, idempotent bootstrap: Cognito pool/domain/client/users, authorizer Lambda and HTTP API.
+  floci-init:
+    image: amazon/aws-cli:2.38.5
+    entrypoint: ["/bin/sh", "/floci/init.sh"]
+    depends_on:
+      floci:
+        condition: service_healthy
+    environment:
+      <<: *floci-credentials
+      AWS_ENDPOINT_URL: http://localhost.floci.io:4566
+      FRONTEND_ORIGIN: *frontend-origin
+      USER_A_PASSWORD: ${USER_A_PASSWORD:-UserA-Dev-Passw0rd}
+      USER_B_PASSWORD: ${USER_B_PASSWORD:-UserB-Dev-Passw0rd}
+    volumes:
+      - ./docker/floci:/floci:ro
+      - ./lambdas/http_authorizer:/lambda-src:ro
+    restart: "no"
+
+  # Database of the academic service. A plain PostgreSQL container instead of Floci RDS: same engine for the
+  # app (Flyway creates the schema), fewer moving parts and no RDS container started behind compose's back.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: uniflow_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d uniflow_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Database of the notification service (MongoDB, as in production).
+  mongo:
+    image: mongo:8
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep -q 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Academic service (Spring Boot, :3001). It re-validates the JWT itself against the shared Cognito issuer.
+  academic:
+    build:
+      context: ./uniflow-academic-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      floci-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *floci-credentials
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: uniflow_db
+      DB_USER: postgres
+      DB_PASSWORD: password
+      # Must equal the `iss` claim of the Floci tokens; pinned in docker/floci/common.sh.
+      COGNITO_ISSUER_URI: http://localhost.floci.io:4566/us-east-1_UniflowDev
+      COGNITO_ALLOWED_CLIENT_IDS: uniflow-spa
+      CORS_ALLOWED_ORIGINS: *frontend-origin
+      REMINDER_SCHEDULER: noop
+      AWS_ENDPOINT_URL: http://localhost.floci.io:4566
+      SPRINGDOC_SWAGGER_UI_ENABLED: "true"
+      SPRINGDOC_API_DOCS_ENABLED: "true"
+      LOGGING_LEVEL_COM_UNIFLOW: DEBUG
+
+  # Notification service (NestJS, :3003). It does no authentication itself: the gateway authorizer protects it.
+  notification:
+    build:
+      context: ./uniflow-notification-service
+      dockerfile: ../docker/notification/Dockerfile
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: 3003
+      MONGODB_URI: mongodb://mongo:27017/uniflow_notifications
+      FRONTEND_URL: *frontend-origin
+      # Outbound email (SES) and push are out of scope locally.
+      EMAIL_ENABLED: "false"
+      PUSH_ENABLED: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -T 5 --spider http://localhost:3003/docs || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+networks:
+  default:
+    # Fixed name so Floci can attach the containers it starts (Lambda) to this network.
+    name: uniflow-dev
+
+volumes:
+  postgres-data:
+  mongo-data:
