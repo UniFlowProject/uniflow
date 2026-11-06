@@ -12,13 +12,13 @@ One Terraform stack creates the whole platform: network, data, auth, edge, APIs,
 | `dns.tf` | Lookup of the EXISTING Route53 zone (never created), custom-domain ACM certificate + validation/alias records |
 | `auth.tf` | Cognito user pool, SPA app client (code flow, `openid email profile`, callback `<origin>/auth/callback`), Hosted UI domain |
 | `api.tf` | HTTP API (JWT authorizer, VPC Link, `ANY /api/academic/v2/{proxy+}` and public `GET /api/academic/health` -> internal ALB listener, prefix stripped), WebSocket API and `prod` stage |
-| `alb.tf` | Internal ALB in the private-app subnets (SG open to the VPC link only), HTTP :80 listener (default 404), `academic` IP target group (port 3001, health `/health`) and a catch-all forward rule |
+| `alb.tf` | Internal ALB in the private-app subnets (SG open to the VPC link only), HTTP :80 listener (default 404), `academic` IP target group (`container_port`, default 3001, health `/health`) and a catch-all forward rule |
 | `ecs.tf` | ECS cluster |
-| `academic.tf` | ECR repo `uniflow/academic-service`, log group, service SG (+ ingress rule on the RDS SG), execution/task roles, Fargate task definition and ECS service registered in the ALB target group |
+| `academic.tf` | ECR repo `<project-tag>/academic-service`, log group, service SG (+ ingress rule on the RDS SG), execution/task roles, Fargate task definition and ECS service registered in the ALB target group |
 | `database.tf` | RDS PostgreSQL (managed password in Secrets Manager) |
 | `dynamodb.tf` | DynamoDB `notifications` / `connections` tables |
 | `messaging.tf` | SNS topic, 3 SQS queues + DLQs, Scheduler group + role, optional SES identity |
-| `lambda_functions.tf`, `lambda_iam.tf` | 10 Lambda functions (zipped from `lambdas/.build` into `.dist/`), log groups, least-privilege execution role per function |
+| `lambda_functions.tf`, `lambda_iam.tf` | 11 Lambda functions (zipped from `lambdas/.build` into `.dist/`), log groups, least-privilege execution role per function |
 | `lambda_routes.tf`, `lambda_queues.tf` | `/api/notifications/v2/*` routes on the HTTP API, WebSocket authorizer + `$connect`/`$disconnect` routes, SQS event source mappings |
 | `observability.tf` | API access log group, alarm topic, DLQ depth alarms |
 | `ci.tf` | GitHub OIDC provider and the three CI roles |
@@ -45,9 +45,9 @@ terraform apply                                   # desired_count defaults to 0
 The first apply has no image in ECR, so the academic service starts with `desired_count = 0`. Then:
 
 1. Push an image from the academic repo (its CI workflow, using the `academic` role from `terraform output github_actions_role_arns`).
-2. Set `desired_count = 1` (tfvars or `-var`) and `terraform apply` again.
+2. Set `desired_count = 1` in `terraform.tfvars` and `terraform apply` again. Keep it there: any later apply resets the service to the Terraform value.
 
-CI owns image rollouts: the ECS service ignores `task_definition` changes and uses the `latest` tag. Re-run `lambdas/build.sh` before any apply that should refresh Lambda code (CI also deploys code on push to `main`).
+CI owns image rollouts: it forces a new deployment of the `latest` tag and never registers task definition revisions, so Terraform owns the task definition. The ECS service has a deployment circuit breaker with rollback. Lambda code is owned by CI (`ignore_changes` on `filename`/`source_code_hash`); `lambdas/build.sh` must still run before every plan/apply, because the zips seed the first create (a precondition fails with a clear message when `lambdas/.build` is missing).
 
 ## CI roles
 
@@ -77,7 +77,7 @@ Defaults and `terraform.tfvars.example` target a low-cost demo. The full profile
 
 ## API routing: internal ALB
 
-The HTTP API reaches ECS through a VPC link and an internal Application Load Balancer (`alb.tf`, about US$16-22/month; no WAF, no NAT, access logs off, deletion protection off). The listener forwards everything to the `academic` target group (IP targets, port 3001, health check `/health`), where the ECS service in `academic.tf` registers its tasks. Routes mirror `docker/floci/init.sh`: `ANY /api/academic/v2/{proxy+}` (JWT) and `GET /api/academic/health` (public), prefix stripped through `overwrite:path`. CloudFront forwards `/api/*` to the API, so the SPA calls `https://<domain>/api/academic/v2/...` same-origin and no API CORS is configured.
+The HTTP API reaches ECS through a VPC link and an internal Application Load Balancer (`alb.tf`, about US$16-22/month; no WAF, no NAT, access logs off, deletion protection off). The listener forwards everything to the `academic` target group (IP targets, `container_port` (default 3001), health check `/health`), where the ECS service in `academic.tf` registers its tasks. Routes mirror `docker/floci/init.sh`: `ANY /api/academic/v2/{proxy+}` (JWT) and `GET /api/academic/health` (public), prefix stripped through `overwrite:path`. CloudFront forwards `/api/*` to the API, so the SPA calls `https://<domain>/api/academic/v2/...` same-origin and no API CORS is configured.
 
 ## Existing DNS zone
 
@@ -85,14 +85,31 @@ The public zone `uniflow.fabian-vargas.com` (`Z10075302R2CBRQK5WU7F`) is delegat
 
 ## Migrating from the old 4 stacks
 
-The old stacks were `terraform/` (root, state key `root/...`), `uniflow-academic-service/terraform`, `UniFlow-Frontend/terraform` and `lambdas/terraform`. Their resources have new addresses and the new stack uses its own state, so migrate by recreation (data in RDS/DynamoDB is lost unless backed up first; RDS keeps a final snapshot only if `rds_skip_final_snapshot = false`).
+The old stacks were `terraform/` (root, state key `root/...`), `uniflow-academic-service/terraform`, `UniFlow-Frontend/terraform` and `lambdas/terraform`. Their resources have new addresses and the new stack uses its own state, so migrate by recreation (data in RDS/DynamoDB is lost unless backed up first).
 
-1. Destroy in reverse order, each from its own directory with its own `backend.hcl`: frontend, lambdas, academic, root (`terraform destroy`). The academic stack destroys the GitHub OIDC provider, which the new stack recreates (only one per account can exist). If the root stack's destroy is blocked (RDS or Cognito deletion protection), set those variables to the unprotected values and apply first.
+Pre-steps, in order:
+
+1. Freeze CI: pause deploys (merges to `main` in the academic, frontend and central repos) until the new stack is applied.
+2. Take a manual RDS snapshot with a unique name (not `<project-tag>-postgres-final`).
+3. Back up DynamoDB: an on-demand backup or an export of the `notifications` and `connections` tables.
+4. Export the Cognito users (for example `aws cognito-idp list-users`); user pool passwords cannot be exported.
+5. Set `rds_deletion_protection = false` (and `cognito_deletion_protection = "INACTIVE"` if it was set) in the old stacks and apply before destroying them.
+6. The final snapshot identifier is fixed in `database.tf` (`<project-tag>-postgres-final`). If a snapshot with that name already exists, destroy fails: delete or rename it first.
+
+Then:
+
+1. Destroy in reverse order, each from its own directory with its own `backend.hcl`: frontend, lambdas, academic, root (`terraform destroy`). The academic stack destroys the GitHub OIDC provider, which the new stack recreates (only one per account can exist). All CI is broken from that moment until the new stack is applied.
 2. The Route53 zone needs no action: it is only a data source in the old root stack, so `destroy` does not touch it and no `terraform state rm` is required. Only the validation and alias records inside it are removed and recreated by the new stack.
 3. Apply the new stack as described in "Apply order". If you chose to keep any old resource instead of destroying it (for example the OIDC provider), adopt it with `terraform import aws_iam_openid_connect_provider.github arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com` before the first apply.
 4. Delete the old state objects (`root/`, `academic/`, `frontend/`, `lambdas/` keys) from the state bucket once the new stack is healthy.
 
 The old SSM contract parameters (`/uniflow/*`) are no longer published: nothing in the repos read them.
+
+## GitHub-side settings
+
+- Protect `main` in the academic and central repos: the academic and lambdas roles trust `ref:refs/heads/main`, so anyone who can push there can deploy.
+- In the frontend repo, restrict the `production` environment to `main` (deployment branch policy), with optional required reviewers. The IAM role trusts `environment:production` from any ref, so the environment rules are the only gate.
+- Set `ses_sender_email` and `default_to_email`: without them `sendEmail` has no recipient fallback and throws.
 
 ## Assumptions and follow-ups
 
